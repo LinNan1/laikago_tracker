@@ -6,7 +6,7 @@ from std_msgs.msg import Float32,String
 from geometry_msgs.msg import Point
 from laikago_msgs.msg import HighCmd, HighState
 from simple_pid import PID
-from laikago_command import laikago_command
+from laikago_command_handle import laikago_command_handle
 from enum import Enum
 class TrackFsm:
     def __init__(self):
@@ -21,7 +21,7 @@ class TrackFsm:
         self.state = self.FSM_state.INIT
 
         # contol
-        self.cmd = laikago_command()
+        self.cmd_handle = laikago_command_handle()
         self.RecvHighROS = HighState()
         self.P = 0.0005
         self.I = 0
@@ -50,15 +50,15 @@ class TrackFsm:
         # rospy.Timer(rospy.Duration(1), self.FSM_callback)
 
     def reset_pitch(self):
-        self.cmd.reset_pitch()
+        self.cmd_handle.reset_pitch()
         self.pid_pitch.reset()
 
     def reset_yaw(self):
-        self.cmd.reset_yaw()
+        self.cmd_handle.reset_yaw()
         self.pid_yaw.reset()
 
     def reset_speed(self):
-        self.cmd.reset_speed()
+        self.cmd_handle.reset_speed()
         self.pid_forwardSpeed.reset()
         self.pid_sideSpeed.reset()
         self.pid_rotateSpeed.reset()
@@ -104,9 +104,9 @@ class TrackFsm:
                 change_FSM_state('WAIT_TARGET')
             elif safe_distance - 0.2 <= distance <= safe_distance + 0.2:
                 if laikage_Highstate.forwardSpeed == 0:
-                    self.cmd.SendHighROS.yaw -= self.pid_yaw(target_uv.x)
-                    self.cmd.SendHighROS.pitch -= self.pid_pitch(target_uv.y)
-                    if self.cmd.SendHighROS.yaw < -0.6 or self.cmd.SendHighROS.yaw > 0.6:
+                    self.cmd_handle.cmd.yaw -= self.pid_yaw(target_uv.x)
+                    self.cmd_handle.cmd.pitch -= self.pid_pitch(target_uv.y)
+                    if self.cmd_handle.cmd.yaw < -0.6 or self.cmd_handle.cmd.yaw > 0.6:
                         self.pid_rotateSpeed.reset()
                         change_FSM_state('STAND_ROTATE_TRACK')
                 else:
@@ -122,10 +122,10 @@ class TrackFsm:
                 reset_cmd()
                 change_FSM_state('STAND_STILL_TRACK')
             else:
-                self.cmd.SendHighROS.mode = 2
-                self.cmd.SendHighROS.forwardSpeed = self.pid_forwardSpeed(-distance)
-                self.cmd.SendHighROS.sideSpeed += self.pid_sideSpeed(target_uv.x)
-                self.cmd.SendHighROS.rotateSpeed += self.pid_rotateSpeed(target_uv.x)
+                self.cmd_handle.cmd.mode = 2
+                self.cmd_handle.cmd.forwardSpeed = self.pid_forwardSpeed(-distance)
+                self.cmd_handle.cmd.sideSpeed += self.pid_sideSpeed(target_uv.x)
+                self.cmd_handle.cmd.rotateSpeed += self.pid_rotateSpeed(target_uv.x)
 
         elif state == FSM_state.STAND_ROTATE_TRACK:
             if distance == -1:
@@ -135,10 +135,10 @@ class TrackFsm:
                     reset_cmd()
                     change_FSM_state('STAND_STILL_TRACK')
                 else:
-                    self.cmd.SendHighROS.mode = 2
-                    self.cmd.SendHighROS.forwardSpeed = 0
-                    self.cmd.SendHighROS.rotateSpeed += self.pid_rotateSpeed(target_uv.x)
-                    self.cmd.SendHighROS.sideSpeed += self.pid_sideSpeed(target_uv.x)
+                    self.cmd_handle.cmd.mode = 2
+                    self.cmd_handle.cmd.forwardSpeed = 0
+                    self.cmd_handle.cmd.rotateSpeed += self.pid_rotateSpeed(target_uv.x)
+                    self.cmd_handle.cmd.sideSpeed += self.pid_sideSpeed(target_uv.x)
             else:
                 change_FSM_state('MOVE_FORWARD_TRACK')
 
@@ -146,11 +146,11 @@ class TrackFsm:
             print 'Invalid state!'
         
         # debug
-        self.cmd_yaw.publish(self.cmd.SendHighROS.yaw)
-        self.cmd_pitch.publish(self.cmd.SendHighROS.pitch)
-        self.cmd_rotateSpeed.publish(self.cmd.SendHighROS.rotateSpeed)
+        self.cmd_yaw.publish(self.cmd_handle.cmd.yaw)
+        self.cmd_pitch.publish(self.cmd_handle.cmd.pitch)
+        self.cmd_rotateSpeed.publish(self.cmd_handle.cmd.rotateSpeed)
 
-        self.cmd.send()
+        self.cmd_handle.send()
 
 def main(args):
     rospy.init_node('track_fsm', anonymous=False)
