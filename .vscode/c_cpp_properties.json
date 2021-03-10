@@ -1,0 +1,21 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "",
+        "limitSymbolsToIncludedHeaders": true
+      },
+      "includePath": [
+        "/home/dji/bryn_workspace/master-pc/catkin_ws/devel/include/**",
+        "/opt/ros/kinetic/include/**",
+        "/home/dji/bryn_workspace/master-pc/catkin_ws/src/VINS-Fusion/camera_models/include/**",
+        "/home/dji/bryn_workspace/master-pc/catkin_ws/src/laikago_controller/include/**",
+        "/home/dji/bryn_workspace/master-pc/catkin_ws/src/laikago_tracker/include/**",
+        "/home/dji/bryn_workspace/master-pc/catkin_ws/src/realsense-ros/realsense2_camera/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS"
+    }
+  ],
+  "version": 4
+}

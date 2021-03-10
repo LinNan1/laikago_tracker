@@ -1,0 +1,164 @@
+#!/usr/bin/python
+import rospy
+import message_filters
+import sys
+from std_msgs.msg import Float32,String
+from geometry_msgs.msg import Point
+from laikago_msgs.msg import HighCmd, HighState
+from simple_pid import PID
+from laikago_command import laikago_command
+from enum import Enum
+class TrackFsm:
+    def __init__(self):
+        self.target_uv_sub = message_filters.Subscriber('/laikago_traker/target_uv',Point)
+        self.distance_sub = message_filters.Subscriber('/laikago_traker/target_distance',Float32)
+        self.state_sub = message_filters.Subscriber('/laikago_real/high_state',HighState)
+        self.time_syn = message_filters.ApproximateTimeSynchronizer([self.target_uv_sub,self.distance_sub,self.state_sub], 10, 0.1, allow_headerless=True)
+        self.time_syn.registerCallback(self.FSM_callback)
+
+        # state
+        self.FSM_state =  Enum('state', ('INIT', 'WAIT_TARGET', 'STAND_STILL_TRACK', 'MOVE_FORWARD_TRACK', 'STAND_ROTATE_TRACK'))
+        self.state = self.FSM_state.INIT
+
+        # contol
+        self.cmd = laikago_command()
+        self.RecvHighROS = HighState()
+        self.P = 0.0005
+        self.I = 0
+        self.D = 0.00002
+        
+        self.pid_yaw = PID(self.P, self.I, self.D, setpoint=320)
+        self.pid_yaw.output_limits = (-0.1, 0.1)
+        self.pid_pitch = PID(self.P, self.I, self.D, setpoint=240)
+        self.pid_pitch.output_limits = (-0.1, 0.1)
+
+        self.pid_sideSpeed = PID(0.000002, 0.0, 0.0000002, setpoint=320)
+        self.pid_sideSpeed.output_limits = (-1.0, 1.0)
+        self.pid_rotateSpeed = PID(0.000103833984375, 0.0, 0.0, setpoint=320)
+        self.pid_rotateSpeed.output_limits = (-1.0, 1.0)
+
+        self.safe_distance = 1 # m
+        self.pid_forwardSpeed = PID(1.0, 0.0, 0.0, setpoint=-self.safe_distance)
+        self.pid_forwardSpeed.output_limits = (-1.0,1.0)
+
+        self.FSM_state_enter_first_time = rospy.Time.now()
+
+        self.cmd_yaw = rospy.Publisher('/laikago_traker/cmd_yaw',Float32,queue_size=10)
+        self.cmd_pitch = rospy.Publisher('/laikago_traker/cmd_pitch',Float32,queue_size=10)
+        self.cmd_rotateSpeed = rospy.Publisher('/laikago_traker/cmd_rotateSpeed',Float32,queue_size=10)
+        self.FSM_state_pub = rospy.Publisher('/laikago_traker/fsm_state',String,queue_size=10)
+        # rospy.Timer(rospy.Duration(1), self.FSM_callback)
+
+    def reset_pitch(self):
+        self.cmd.reset_pitch()
+        self.pid_pitch.reset()
+
+    def reset_yaw(self):
+        self.cmd.reset_yaw()
+        self.pid_yaw.reset()
+
+    def reset_speed(self):
+        self.cmd.reset_speed()
+        self.pid_forwardSpeed.reset()
+        self.pid_sideSpeed.reset()
+        self.pid_rotateSpeed.reset()
+
+    def reset_cmd(self):
+        # self.reset_pitch()
+        self.reset_yaw()
+        self.reset_speed()
+
+    def change_FSM_state(self,state):
+        rospy.loginfo('change to state: %s',state)
+        self.FSM_state_pub.publish('change to state: %s'%state)
+        self.FSM_state_enter_first_time = rospy.Time.now()
+        self.state = self.FSM_state[state]
+
+    def FSM_callback(self,target_uv,distance,laikage_Highstate):
+        state = self.state
+        change_FSM_state = self.change_FSM_state
+        reset_yaw = self.reset_yaw
+        reset_speed = self.reset_speed
+        reset_cmd = self.reset_cmd
+        FSM_state = self.FSM_state
+        distance = distance.data
+        safe_distance = self.safe_distance
+        tmp = 0.2
+
+        if state == FSM_state.INIT:
+            reset_cmd()
+            change_FSM_state('WAIT_TARGET')
+
+        elif state == FSM_state.WAIT_TARGET:
+            if distance == -1:
+                if rospy.Time.now().to_nsec() - self.FSM_state_enter_first_time.to_nsec() > 500000000:
+                    reset_cmd()
+            elif safe_distance - 0.2 <= distance <= safe_distance + 0.2:
+                # reset_cmd()
+                change_FSM_state('STAND_STILL_TRACK')
+            else:
+                change_FSM_state('MOVE_FORWARD_TRACK')
+
+        elif state == FSM_state.STAND_STILL_TRACK:
+            if distance == -1:
+                change_FSM_state('WAIT_TARGET')
+            elif safe_distance - 0.2 <= distance <= safe_distance + 0.2:
+                if laikage_Highstate.forwardSpeed == 0:
+                    self.cmd.SendHighROS.yaw -= self.pid_yaw(target_uv.x)
+                    self.cmd.SendHighROS.pitch -= self.pid_pitch(target_uv.y)
+                    if self.cmd.SendHighROS.yaw < -0.6 or self.cmd.SendHighROS.yaw > 0.6:
+                        self.pid_rotateSpeed.reset()
+                        change_FSM_state('STAND_ROTATE_TRACK')
+                else:
+                    reset_cmd()
+            else:
+                change_FSM_state('MOVE_FORWARD_TRACK')
+
+                
+        elif state == FSM_state.MOVE_FORWARD_TRACK:
+            if distance == -1:
+                change_FSM_state('WAIT_TARGET')
+            elif safe_distance - 0.2 <= distance <= safe_distance  + 0.2:
+                reset_cmd()
+                change_FSM_state('STAND_STILL_TRACK')
+            else:
+                self.cmd.SendHighROS.mode = 2
+                self.cmd.SendHighROS.forwardSpeed = self.pid_forwardSpeed(-distance)
+                self.cmd.SendHighROS.sideSpeed += self.pid_sideSpeed(target_uv.x)
+                self.cmd.SendHighROS.rotateSpeed += self.pid_rotateSpeed(target_uv.x)
+
+        elif state == FSM_state.STAND_ROTATE_TRACK:
+            if distance == -1:
+                change_FSM_state('WAIT_TARGET')
+            elif safe_distance - 0.2 <= distance <= safe_distance + 0.2:
+                if (320 - 0.01*320) < target_uv.x < (320 + 0.01*320):
+                    reset_cmd()
+                    change_FSM_state('STAND_STILL_TRACK')
+                else:
+                    self.cmd.SendHighROS.mode = 2
+                    self.cmd.SendHighROS.forwardSpeed = 0
+                    self.cmd.SendHighROS.rotateSpeed += self.pid_rotateSpeed(target_uv.x)
+                    self.cmd.SendHighROS.sideSpeed += self.pid_sideSpeed(target_uv.x)
+            else:
+                change_FSM_state('MOVE_FORWARD_TRACK')
+
+        else:
+            print 'Invalid state!'
+        
+        # debug
+        self.cmd_yaw.publish(self.cmd.SendHighROS.yaw)
+        self.cmd_pitch.publish(self.cmd.SendHighROS.pitch)
+        self.cmd_rotateSpeed.publish(self.cmd.SendHighROS.rotateSpeed)
+
+        self.cmd.send()
+
+def main(args):
+    rospy.init_node('track_fsm', anonymous=False)
+    tracker = TrackFsm()
+    try:
+        rospy.spin()
+    except KeyboardInterrupt:
+        print("Shutting down")
+   
+if __name__ == '__main__':
+    main(sys.argv)
