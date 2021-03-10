@@ -10,5 +10,7 @@
     <node pkg="loop_fusion" name="loop_fusion" type="loop_fusion_node" args="/home/dji/catkin_ws/src/VINS-Fusion/config/realsense_d435i/realsense_stereo_imu_config_dji.yaml" launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' "/>
 
     <include file="$(find ego_planner)/launch/simple_run.launch" />
+
+    <node pkg="laikago_tracker" name="laikago_traj_server" type="traj_server.py" output="screen"/>
     
 </launch>
