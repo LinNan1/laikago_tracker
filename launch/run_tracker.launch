@@ -1,6 +1,8 @@
 <launch>
+    <arg name="node_start_delay" default="5.0" /> 
+    <include file="$(find dji_sdk)/launch/sdk.launch" />
     <include file="$(find laikago_tracker)/launch/rs_camera.launch" />
     <node pkg="laikago_real"      name="laikago_ros_to_lcm_server" type="walk_lcm" respawn="true" />
     <node pkg="laikago_tracker"   name="target_detector"           type="target_detector.py" output="screen"/>
-    <node pkg="laikago_tracker"   name="track_fsm"           type="track_fsm.py" output="screen"/>
+    <node pkg="laikago_tracker"   name="track_fsm"           type="track_fsm.py" output="screen" launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' "/>
 </launch>
