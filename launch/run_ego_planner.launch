@@ -13,6 +13,6 @@
 
     <node pkg="laikago_real"      name="laikago_ros_to_lcm_server" type="walk_lcm" respawn="true" />
 
-    <node pkg="laikago_tracker" name="laikago_traj_server" type="traj_server.py" output="screen"/>
+    <node pkg="laikago_tracker" name="laikago_controller" type="controller.py" output="screen"/>
     
 </launch>
