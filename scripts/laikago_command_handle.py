@@ -7,6 +7,7 @@ class laikago_command_handle():
         self.joy_sub = rospy.Subscriber('/dji_sdk/rc',Joy,self.joy_call_back)
         self.joy = True
         self.cmd = HighCmd()
+        self.walk_mode = False
     def reset_rpy(self):
         self.cmd.roll = 0
         self.cmd.yaw = 0
@@ -49,7 +50,10 @@ class laikago_command_handle():
         if joy_trigger.axes[5] != 0:
             self.joy = True
             self.reset()
-            if joy_trigger.axes[5] == 3:
+        else:
+            self.joy = False
+        if self.joy:
+            if joy_trigger.axes[4] == -1:
                 self.cmd.mode = 2
                 self.cmd.forwardSpeed = joy_trigger.axes[3]
                 self.cmd.rotateSpeed = -joy_trigger.axes[2]
@@ -63,8 +67,7 @@ class laikago_command_handle():
                 self.cmd.bodyHeight = joy_trigger.axes[3]
 
             self.high_cmd_pub.publish(self.cmd)
-        else:
-            self.joy = False
+
     def send(self):
         if not self.joy:
             self.high_cmd_pub.publish(self.cmd)
