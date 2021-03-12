@@ -24,11 +24,11 @@ class TrajController:
     def call_back(self,pos_cmd, vins_imu):
 
         self.cmd_handle.cmd.mode = 2
-        self.cmd_handle.cmd.forwardSpeed = self.pid_x(pos_cmd.position.x - vins_imu.pose.pose.position.x)
-        self.cmd_handle.cmd.sideSpeed = self.pid_y(pos_cmd.position.y - vins_imu.pose.pose.position.y)
+        self.cmd_handle.cmd.forwardSpeed = self.pid_x(vins_imu.pose.pose.position.x - pos_cmd.position.x)
+        self.cmd_handle.cmd.sideSpeed = self.pid_y(vins_imu.pose.pose.position.y - pos_cmd.position.y)
         orientation = vins_imu.pose.pose.orientation
         (roll, pitch, yaw) = transformations.euler_from_quaternion([orientation.x, orientation.y, orientation.z, orientation.w])
-        self.cmd_handle.cmd.rotateSpeed = self.pid_yaw(pos_cmd.yaw - yaw)
+        self.cmd_handle.cmd.rotateSpeed = self.pid_yaw(yaw - pos_cmd.yaw)
 
         self.cmd_handle.send()
         
