@@ -9,7 +9,7 @@ if __name__ == '__main__':
 
     tfBuffer = tf2_ros.Buffer()
     listener = tf2_ros.TransformListener(tfBuffer)
-    goal_pose_pub = rospy.Publisher('/laikago_traker/goal',PoseStamped,queue_size=10)
+    goal_pose_pub = rospy.Publisher('/laikago_tracker/goal',PoseStamped,queue_size=10)
     rate = rospy.Rate(1.0)
     while not rospy.is_shutdown():
         try:
