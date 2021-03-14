@@ -12,13 +12,14 @@ class TrajController:
         self.time_syn = message_filters.ApproximateTimeSynchronizer([self.planning_cmd_sub,self.vins_imu_sub], 10, 0.1, allow_headerless=True)
         self.time_syn.registerCallback(self.call_back)
         self.pos_cmd_pose_pub = rospy.Publisher('/planning/pos_cmd_pose',Odometry,queue_size=10)
+        self.laikago_pose_pub = rospy.Publisher('/laikago_tracker/pose',Odometry,queue_size=10)
         self.cmd_handle = laikago_command_handle()
 
-        self.pid_x = PID(1.0, 0.0, 0.0, setpoint=0)
-        self.pid_y = PID(1.0, 0.0, 0.0, setpoint=0)
-        self.pid_yaw = PID(1.0, 0.0, 0.0, setpoint=0)
+        self.pid_x = PID(2.0, 0.0, 0.02, setpoint=0)
+        self.pid_y = PID(2.5, 0.0, 0.025, setpoint=0)
+        self.pid_yaw = PID(3.0, 0.0, 0.03, setpoint=0)
 
-        self.pid_x.output_limits = (-1,1)
+        self.pid_x.output_limits = (0,1)
         self.pid_y.output_limits = (-1,1)
         self.pid_yaw.output_limits = (-1,1)
 
@@ -35,6 +36,9 @@ class TrajController:
         pos_cmd_pos.header = pos_cmd.header
 
         self.pos_cmd_pose_pub.publish(pos_cmd_pos)
+        
+        vins_imu.pose.pose.position.x = vins_imu.pose.pose.position.x - 0.2
+        self.laikago_pose_pub.publish(vins_imu)
         
         self.cmd_handle.cmd.mode = 2
         self.cmd_handle.cmd.forwardSpeed = self.pid_x(vins_imu.pose.pose.position.x - pos_cmd.position.x)
