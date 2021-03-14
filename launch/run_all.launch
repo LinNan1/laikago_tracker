@@ -5,7 +5,9 @@
     
     <node pkg="laikago_real" name="laikago_ros_to_lcm_server" type="walk_lcm" respawn="true" />
 
-    <node pkg="laikago_tracker" name="laikago_tracker" type="tracker.py" output="screen"/>
+    <node pkg="laikago_tracker" name="laikago_tracker" type="target_detector.py" output="screen"/>
+
+    <node pkg="laikago_tracker" name="goal_generator" type="goal_generator.py" output="screen"/>
 
     <include file="$(find dji_sdk)/launch/sdk.launch" />
 
@@ -14,5 +16,7 @@
     <node pkg="loop_fusion" name="loop_fusion" type="loop_fusion_node" args="/home/dji/catkin_ws/src/VINS-Fusion/config/realsense_d435i/realsense_stereo_imu_config_dji.yaml" launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' "/>
 
     <include file="$(find ego_planner)/launch/simple_run.launch" />
+
+    <node pkg="laikago_tracker" name="laikago_controller" type="controller.py" output="screen"/>
     
 </launch>
