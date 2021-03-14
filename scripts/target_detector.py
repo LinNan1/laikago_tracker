@@ -157,8 +157,8 @@ class TargetDetector:
         #     cv2.rectangle(image,(x,y),(x+w,y+h),(255,255,255),2)
 
         # resize for remote play
-        # image = cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
-        # image = cv2.resize(image, (320,240), interpolation = cv2.INTER_AREA)
+        image = cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
+        image = cv2.resize(image, (320,240), interpolation = cv2.INTER_AREA)
 
         return image, (x, y, w, h)
 
@@ -210,9 +210,10 @@ class TargetDetector:
             self.t.transform.rotation.y = q[1]
             self.t.transform.rotation.z = q[2]
             self.t.transform.rotation.w = q[3]
+            self.tf_broadcaster.sendTransform(self.t)
         else:
             self.t.transform.rotation.w = 1.0
-        self.tf_broadcaster.sendTransform(self.t)
+        
         self.target_distance_pub.publish(distance)
 
         self.image_res_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "passthrough"))
