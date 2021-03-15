@@ -8,6 +8,7 @@ from laikago_msgs.msg import HighCmd, HighState
 from simple_pid import PID
 from laikago_command_handle import laikago_command_handle
 from enum import Enum
+from math import sin, cos, pi
 class TrackFsm:
     def __init__(self):
         self.target_uv_sub = message_filters.Subscriber('/laikago_traker/target_uv',Point)
@@ -17,7 +18,7 @@ class TrackFsm:
         self.time_syn.registerCallback(self.FSM_callback)
 
         # state
-        self.FSM_state =  Enum('state', ('INIT', 'WAIT_TARGET', 'STAND_STILL_TRACK', 'MOVE_FORWARD_TRACK', 'STAND_ROTATE_TRACK'))
+        self.FSM_state =  Enum('state', ('INIT', 'WAIT_TARGET', 'STAND_STILL_TRACK', 'MOVE_FORWARD_TRACK', 'STAND_ROTATE_TRACK', 'REPLAN', 'SEEK_TARGET'))
         self.state = self.FSM_state.INIT
 
         # contol
@@ -37,11 +38,14 @@ class TrackFsm:
         self.pid_rotateSpeed = PID(0.000103833984375, 0.0, 0.0, setpoint=320)
         self.pid_rotateSpeed.output_limits = (-1.0, 1.0)
 
-        self.safe_distance = 1 # m
+        self.safe_distance = rospy.get_param('safe_distance') # m
+        self.replan_distance = rospy.get_param('replan_distance') # m
         self.pid_forwardSpeed = PID(1.0, 0.0, 0.0, setpoint=-self.safe_distance)
         self.pid_forwardSpeed.output_limits = (-1.0,1.0)
 
         self.FSM_state_enter_first_time = rospy.Time.now()
+
+        self.seek_curve_x = 0
 
         self.cmd_yaw = rospy.Publisher('/laikago_traker/cmd_yaw',Float32,queue_size=10)
         self.cmd_pitch = rospy.Publisher('/laikago_traker/cmd_pitch',Float32,queue_size=10)
@@ -73,6 +77,9 @@ class TrackFsm:
         self.FSM_state_pub.publish('change to state: %s'%state)
         self.FSM_state_enter_first_time = rospy.Time.now()
         self.state = self.FSM_state[state]
+        if state == 'REPLAN':
+            self.reset_cmd()
+            rospy.set_param('enable_replan', True)
 
     def FSM_callback(self,target_uv,distance,laikage_Highstate):
         state = self.state
@@ -96,6 +103,8 @@ class TrackFsm:
             elif safe_distance - 0.2 <= distance <= safe_distance + 0.2:
                 # reset_cmd()
                 change_FSM_state('STAND_STILL_TRACK')
+            elif distance > self.replan_distance:
+                change_FSM_state('REPLAN')
             else:
                 change_FSM_state('MOVE_FORWARD_TRACK')
 
@@ -111,6 +120,8 @@ class TrackFsm:
                         change_FSM_state('STAND_ROTATE_TRACK')
                 else:
                     reset_cmd()
+            elif distance > self.replan_distance:
+                change_FSM_state('REPLAN')
             else:
                 change_FSM_state('MOVE_FORWARD_TRACK')
 
@@ -121,6 +132,8 @@ class TrackFsm:
             elif safe_distance - 0.2 <= distance <= safe_distance  + 0.2:
                 reset_cmd()
                 change_FSM_state('STAND_STILL_TRACK')
+            elif distance > self.replan_distance:
+                change_FSM_state('REPLAN')
             else:
                 self.cmd_handle.cmd.mode = 2
                 self.cmd_handle.cmd.forwardSpeed = self.pid_forwardSpeed(-distance)
@@ -139,8 +152,27 @@ class TrackFsm:
                     self.cmd_handle.cmd.forwardSpeed = 0
                     self.cmd_handle.cmd.rotateSpeed += self.pid_rotateSpeed(target_uv.x)
                     self.cmd_handle.cmd.sideSpeed += self.pid_sideSpeed(target_uv.x)
+            elif distance > self.replan_distance:
+                change_FSM_state('REPLAN')
             else:
                 change_FSM_state('MOVE_FORWARD_TRACK')
+        elif state == FSM_state.REPLAN:
+            enable_seek_target = rospy.get_param('enable_seek_target')
+            if 0 < distance <= self.replan_distance:
+                rospy.set_param('enable_replan', False)
+                change_FSM_state('INIT')
+            elif enable_seek_target:
+                change_FSM_state('SEEK_TARGET')
+            else:
+                return False
+        elif state == FSM_state.SEEK_TARGET:
+            self.seek_curve_x += 0.01
+            if 0 <= self.seek_curve_x <= 2:
+                 self.cmd_handle.yaw = -sin(pi*self.seek_curve_x/2)
+            if 1 <= self.seek_curve_x <= 2.5:
+                self.cmd_handle.pitch = cos(pi*self.seek_curve_x/2)
+            if self.seek_curve_x > 2.5:
+                pass
 
         else:
             print 'Invalid state!'
