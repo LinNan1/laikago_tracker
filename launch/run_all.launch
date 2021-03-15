@@ -1,22 +1,29 @@
 <launch>
-    <arg name="node_start_delay" default="10.0" />  
+
+    <arg name="safe_distance" default="1.0"/>
+    <arg name="replan_distance" default="2.0"/>
 
     <include file="$(find laikago_tracker)/launch/rs_camera.launch"/>
-    
-    <node pkg="laikago_real" name="laikago_ros_to_lcm_server" type="walk_lcm" respawn="true" />
 
-    <node pkg="laikago_tracker" name="laikago_tracker" type="target_detector.py" output="screen"/>
+    <group ns="laikago_tracker">
+        <param name="safe_distance"   value="$(arg safe_distance)" />
+        <param name="replan_distance" value="$(arg replan_distance)" />
+        <param name="enable_replan" value="False" />
+        <param name="enable_seek_target" value="False" />
 
-    <node pkg="laikago_tracker" name="goal_generator" type="goal_generator.py" output="screen"/>
+        <node pkg="laikago_real" name="laikago_ros_to_lcm_server" type="walk_lcm" respawn="true" />
+        <node pkg="laikago_tracker" name="laikago_tracker" type="target_detector.py" output="screen"/>
+        <node pkg="laikago_tracker" name="track_fsm" type="track_fsm.py" output="screen"/>
+        <node pkg="laikago_tracker" name="goal_generator" type="goal_generator.py" output="screen"/>
+        <node pkg="laikago_tracker" name="laikago_controller" type="controller.py" output="screen"/>
+    </group>
 
     <include file="$(find dji_sdk)/launch/sdk.launch" />
 
+    <arg name="node_start_delay" default="10.0" />
     <node pkg="vins" name="vins_estimator" type="vins_node" args="/home/dji/catkin_ws/src/VINS-Fusion/config/realsense_d435i/realsense_stereo_imu_config_dji.yaml" launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' "/>
-    
     <node pkg="loop_fusion" name="loop_fusion" type="loop_fusion_node" args="/home/dji/catkin_ws/src/VINS-Fusion/config/realsense_d435i/realsense_stereo_imu_config_dji.yaml" launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' "/>
 
     <include file="$(find ego_planner)/launch/simple_run.launch" />
 
-    <node pkg="laikago_tracker" name="laikago_controller" type="controller.py" output="screen"/>
-    
 </launch>
