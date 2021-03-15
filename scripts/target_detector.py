@@ -23,6 +23,8 @@ class TargetDetector:
             [0.0, 0.0, 1.0]])
         self.t = TransformStamped()
 
+        self.safe_distance = rospy.get_param('safe_distance') # m
+        self.replan_distance = rospy.get_param('replan_distance') # m
 
         self.image_sub = message_filters.Subscriber('/camera/color/image_raw',Image)
         self.depth_sub = message_filters.Subscriber('/camera/aligned_depth_to_color/image_raw',Image)
@@ -197,22 +199,24 @@ class TargetDetector:
         if cX != -1:
             depth_array = np.array(depth_image, dtype=np.float32)
             distance = depth_array[cY][cX]/1000 + 0.000000001
-            P_uv = np.array([[cX],[cY],[1.0]])
-            P_xyz = distance*np.dot(np.linalg.inv(self.camera_intrinsics),P_uv)
-            # rospy.loginfo('%f, %f, %f',P_xyz[0][0],P_xyz[1][0],P_xyz[2][0])
-            
-            theta = 0.0
-            self.t.transform.translation.x = P_xyz[0][0]
-            self.t.transform.translation.y = P_xyz[1][0]
-            self.t.transform.translation.z = P_xyz[2][0]
-            q = tf_conversions.transformations.quaternion_from_euler(0, 0, theta)
-            self.t.transform.rotation.x = q[0]
-            self.t.transform.rotation.y = q[1]
-            self.t.transform.rotation.z = q[2]
-            self.t.transform.rotation.w = q[3]
-            self.tf_broadcaster.sendTransform(self.t)
-        else:
-            self.t.transform.rotation.w = 1.0
+
+            if distance > self.replan_distance:
+                P_uv = np.array([[cX],[cY],[1.0]])
+                P_xyz = distance*np.dot(np.linalg.inv(self.camera_intrinsics),P_uv)
+                # rospy.loginfo('%f, %f, %f',P_xyz[0][0],P_xyz[1][0],P_xyz[2][0])
+                
+                theta = 0.0
+                self.t.transform.translation.x = P_xyz[0][0]
+                self.t.transform.translation.y = P_xyz[1][0]
+                self.t.transform.translation.z = P_xyz[2][0]
+                q = tf_conversions.transformations.quaternion_from_euler(0, 0, theta)
+                self.t.transform.rotation.x = q[0]
+                self.t.transform.rotation.y = q[1]
+                self.t.transform.rotation.z = q[2]
+                self.t.transform.rotation.w = q[3]
+                self.tf_broadcaster.sendTransform(self.t)
+            else:
+                self.t.transform.rotation.w = 1.0
         
         self.target_distance_pub.publish(distance)
 
