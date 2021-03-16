@@ -2,7 +2,13 @@
     <arg name="node_start_delay" default="5.0" /> 
     <include file="$(find dji_sdk)/launch/sdk.launch" />
     <include file="$(find laikago_tracker)/launch/rs_camera.launch" />
-    <node pkg="laikago_real"      name="laikago_ros_to_lcm_server" type="walk_lcm" respawn="true" />
-    <node pkg="laikago_tracker"   name="target_detector"           type="target_detector.py" output="screen"/>
-    <node pkg="laikago_tracker"   name="track_fsm"           type="track_fsm.py" output="screen" launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' "/>
+    <group ns="laikago_tracker">
+        <param name="safe_distance"   value="$(arg safe_distance)" />
+        <param name="replan_distance" value="$(arg replan_distance)" />
+        <param name="enable_replan" value="False" />
+        <param name="enable_seek_target" value="False" />
+        <node pkg="laikago_real"      name="laikago_ros_to_lcm_server" type="walk_lcm" respawn="true" />
+        <node pkg="laikago_tracker"   name="target_detector"           type="target_detector.py" output="screen"/>
+        <node pkg="laikago_tracker"   name="track_fsm"           type="track_fsm.py" output="screen" launch-prefix="bash -c 'sleep $(arg node_start_delay); $0 $@' "/>
+    </group>
 </launch>
