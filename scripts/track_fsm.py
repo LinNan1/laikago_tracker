@@ -11,8 +11,8 @@ from enum import Enum
 from math import sin, cos, pi
 class TrackFsm:
     def __init__(self):
-        self.target_uv_sub = message_filters.Subscriber('/laikago_traker/target_uv',Point)
-        self.distance_sub = message_filters.Subscriber('/laikago_traker/target_distance',Float32)
+        self.target_uv_sub = message_filters.Subscriber('/laikago_tracker/target_uv',Point)
+        self.distance_sub = message_filters.Subscriber('/laikago_tracker/target_distance',Float32)
         self.state_sub = message_filters.Subscriber('/laikago_real/high_state',HighState)
         self.time_syn = message_filters.ApproximateTimeSynchronizer([self.target_uv_sub,self.distance_sub,self.state_sub], 10, 0.1, allow_headerless=True)
         self.time_syn.registerCallback(self.FSM_callback)
@@ -47,10 +47,10 @@ class TrackFsm:
 
         self.seek_curve_x = 0
 
-        self.cmd_yaw = rospy.Publisher('/laikago_traker/cmd_yaw',Float32,queue_size=10)
-        self.cmd_pitch = rospy.Publisher('/laikago_traker/cmd_pitch',Float32,queue_size=10)
-        self.cmd_rotateSpeed = rospy.Publisher('/laikago_traker/cmd_rotateSpeed',Float32,queue_size=10)
-        self.FSM_state_pub = rospy.Publisher('/laikago_traker/fsm_state',String,queue_size=10)
+        self.cmd_yaw = rospy.Publisher('/laikago_tracker/cmd_yaw',Float32,queue_size=10)
+        self.cmd_pitch = rospy.Publisher('/laikago_tracker/cmd_pitch',Float32,queue_size=10)
+        self.cmd_rotateSpeed = rospy.Publisher('/laikago_tracker/cmd_rotateSpeed',Float32,queue_size=10)
+        self.FSM_state_pub = rospy.Publisher('/laikago_tracker/fsm_state',String,queue_size=10)
         # rospy.Timer(rospy.Duration(1), self.FSM_callback)
 
     def reset_pitch(self):
@@ -74,12 +74,14 @@ class TrackFsm:
 
     def change_FSM_state(self,state):
         rospy.loginfo('change to state: %s',state)
-        self.FSM_state_pub.publish('change to state: %s'%state)
+        self.FSM_state_pub.publish('change to state: %s'%state.data)
         self.FSM_state_enter_first_time = rospy.Time.now()
         self.state = self.FSM_state[state]
         if state == 'REPLAN':
             self.reset_cmd()
             rospy.set_param('enable_replan', True)
+        elif state == 'SEEK_TARGET':
+            self.seek_curve_x = 0
 
     def FSM_callback(self,target_uv,distance,laikage_Highstate):
         state = self.state
@@ -166,14 +168,18 @@ class TrackFsm:
             else:
                 return False
         elif state == FSM_state.SEEK_TARGET:
+            if distance > 0:
+                change_FSM_state('INIT')
             self.seek_curve_x += 0.01
             if 0 <= self.seek_curve_x <= 2:
-                 self.cmd_handle.yaw = -sin(pi*self.seek_curve_x/2)
+                 self.cmd_handle.cmd.yaw = -sin(pi*self.seek_curve_x/2)
             if 1 <= self.seek_curve_x <= 2.5:
-                self.cmd_handle.pitch = cos(pi*self.seek_curve_x/2)
+                self.cmd_handle.cmd.pitch = cos(pi*self.seek_curve_x/2)
             if self.seek_curve_x > 2.5:
-                pass
-
+                self.cmd_handle.cmd.rotateSpeed = 0.1
+            if self.seek_curve_x > 4.0:
+                change_FSM_state('INIT')
+            
         else:
             print 'Invalid state!'
         
