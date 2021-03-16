@@ -162,7 +162,11 @@ include_directories(
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
-  scripts/tracker.py
+  scripts/controller.py
+  scripts/goal_generator.py
+  scripts/laikago_command_handle.py
+  scripts/target_detector.py
+  scripts/track_fsm.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
