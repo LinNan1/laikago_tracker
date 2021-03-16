@@ -12,10 +12,10 @@ from geometry_msgs.msg import Point, TransformStamped
 import tf2_ros,tf_conversions
 class TargetDetector:
     def __init__(self):
-        self.image_res_pub = rospy.Publisher('/laikago_traker/image_res',Image,queue_size=10)
-        self.depth_res_pub = rospy.Publisher('/laikago_traker/depth_res',Image,queue_size=10)
-        self.target_uv_pub = rospy.Publisher('/laikago_traker/target_uv',Point,queue_size=10)
-        self.target_distance_pub = rospy.Publisher('/laikago_traker/target_distance',Float32,queue_size=10)
+        self.image_res_pub = rospy.Publisher('/laikago_tracker/image_res',Image,queue_size=10)
+        self.depth_res_pub = rospy.Publisher('/laikago_tracker/depth_res',Image,queue_size=10)
+        self.target_uv_pub = rospy.Publisher('/laikago_tracker/target_uv',Point,queue_size=10)
+        self.target_distance_pub = rospy.Publisher('/laikago_tracker/target_distance',Float32,queue_size=10)
         self.tf_broadcaster = tf2_ros.TransformBroadcaster()
         self.camera_intrinsics = np.array([
             [607.48, 0.0, 319.197 ], 
