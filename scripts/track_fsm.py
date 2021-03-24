@@ -74,7 +74,7 @@ class TrackFsm:
 
     def change_FSM_state(self,state):
         rospy.loginfo('change to state: %s',state)
-        self.FSM_state_pub.publish('change to state: %s'%state.data)
+        self.FSM_state_pub.publish('change to state: %s' % state)
         self.FSM_state_enter_first_time = rospy.Time.now()
         self.state = self.FSM_state[state]
         if state == 'REPLAN':
@@ -171,13 +171,13 @@ class TrackFsm:
             if distance > 0:
                 change_FSM_state('INIT')
             self.seek_curve_x += 0.01
-            if 0 <= self.seek_curve_x <= 2:
-                 self.cmd_handle.cmd.yaw = -sin(pi*self.seek_curve_x/2)
-            if 1 <= self.seek_curve_x <= 2.5:
-                self.cmd_handle.cmd.pitch = cos(pi*self.seek_curve_x/2)
-            if self.seek_curve_x > 2.5:
-                self.cmd_handle.cmd.rotateSpeed = 0.1
-            if self.seek_curve_x > 4.0:
+            if 0 <= self.seek_curve_x <= 4:
+                 self.cmd_handle.cmd.yaw = -0.6*sin(pi*self.seek_curve_x/2)
+            if 3 <= self.seek_curve_x <= 5:
+                self.cmd_handle.cmd.pitch = -0.6*cos(pi*self.seek_curve_x/2)
+            # if self.seek_curve_x > 5:
+            #     self.cmd_handle.cmd.rotateSpeed = 0.1
+            if self.seek_curve_x > 5.0:
                 change_FSM_state('INIT')
             
         else:
