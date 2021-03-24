@@ -2,7 +2,7 @@
 
     <arg name="safe_distance" default="1.0"/>
     <arg name="replan_distance" default="2.0"/>
-
+    <arg name="laikago_start_delay" default="12.0" />
     <include file="$(find laikago_tracker)/launch/rs_camera.launch"/>
 
     <group ns="laikago_tracker">
@@ -13,8 +13,8 @@
 
         <node pkg="laikago_real" name="laikago_ros_to_lcm_server" type="walk_lcm" respawn="true" />
         <node pkg="laikago_tracker" name="laikago_tracker" type="target_detector.py" output="screen"/>
-        <node pkg="laikago_tracker" name="track_fsm" type="track_fsm.py" output="screen"/>
-        <node pkg="laikago_tracker" name="goal_generator" type="goal_generator.py" output="screen"/>
+        <node pkg="laikago_tracker" name="track_fsm" type="track_fsm.py" output="screen" launch-prefix="bash -c 'sleep $(arg laikago_start_delay); $0 $@' "/>
+        <node pkg="laikago_tracker" name="goal_generator" type="goal_generator.py" output="screen" launch-prefix="bash -c 'sleep $(arg laikago_start_delay); $0 $@' "/>
         <node pkg="laikago_tracker" name="laikago_controller" type="controller.py" output="screen"/>
     </group>
 
