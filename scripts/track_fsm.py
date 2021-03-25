@@ -18,7 +18,7 @@ class TrackFsm:
         self.time_syn.registerCallback(self.FSM_callback)
 
         # state
-        self.FSM_state =  Enum('state', ('INIT', 'WAIT_TARGET', 'STAND_STILL_TRACK', 'MOVE_FORWARD_TRACK', 'STAND_ROTATE_TRACK', 'REPLAN', 'SEEK_TARGET'))
+        self.FSM_state =  Enum('state', ('INIT', 'WAIT_TARGET', 'STAND_STILL_TRACK', 'STAND_ROTATE_TRACK', 'REPLAN', 'SEEK_TARGET'))
         self.state = self.FSM_state.INIT
 
         # contol
@@ -102,18 +102,17 @@ class TrackFsm:
             if distance == -1:
                 if rospy.Time.now().to_nsec() - self.FSM_state_enter_first_time.to_nsec() > 500000000:
                     reset_cmd()
-            elif safe_distance - 0.2 <= distance <= safe_distance + 0.2:
+            elif distance <= safe_distance:
                 # reset_cmd()
                 change_FSM_state('STAND_STILL_TRACK')
-            elif distance > self.replan_distance:
+            elif distance > safe_distance:
                 change_FSM_state('REPLAN')
-            else:
-                change_FSM_state('MOVE_FORWARD_TRACK')
 
         elif state == FSM_state.STAND_STILL_TRACK:
             if distance == -1:
-                change_FSM_state('WAIT_TARGET')
-            elif safe_distance - 0.2 <= distance <= safe_distance + 0.2:
+                change_FSM_state('SEEK_TARGET')
+            elif distance <= safe_distance:
+                # make sure the robot has stopped
                 if laikage_Highstate.forwardSpeed == 0:
                     self.cmd_handle.cmd.yaw -= self.pid_yaw(target_uv.x)
                     self.cmd_handle.cmd.pitch -= self.pid_pitch(target_uv.y)
@@ -124,61 +123,45 @@ class TrackFsm:
                     reset_cmd()
             elif distance > self.replan_distance:
                 change_FSM_state('REPLAN')
-            else:
-                change_FSM_state('MOVE_FORWARD_TRACK')
 
-                
-        elif state == FSM_state.MOVE_FORWARD_TRACK:
-            if distance == -1:
-                change_FSM_state('WAIT_TARGET')
-            elif safe_distance - 0.2 <= distance <= safe_distance  + 0.2:
+        elif state == FSM_state.STAND_ROTATE_TRACK:
+            if distance == -1 or (320 - 0.01*320) < target_uv.x < (320 + 0.01*320):
                 reset_cmd()
                 change_FSM_state('STAND_STILL_TRACK')
-            elif distance > self.replan_distance:
+            elif distance > safe_distance:
                 change_FSM_state('REPLAN')
             else:
                 self.cmd_handle.cmd.mode = 2
-                self.cmd_handle.cmd.forwardSpeed = self.pid_forwardSpeed(-distance)
-                self.cmd_handle.cmd.sideSpeed += self.pid_sideSpeed(target_uv.x)
+                self.cmd_handle.cmd.forwardSpeed = 0
                 self.cmd_handle.cmd.rotateSpeed += self.pid_rotateSpeed(target_uv.x)
+                self.cmd_handle.cmd.sideSpeed += self.pid_sideSpeed(target_uv.x)   
 
-        elif state == FSM_state.STAND_ROTATE_TRACK:
-            if distance == -1:
-                change_FSM_state('WAIT_TARGET')
-            elif safe_distance - 0.2 <= distance <= safe_distance + 0.2:
-                if (320 - 0.01*320) < target_uv.x < (320 + 0.01*320):
-                    reset_cmd()
-                    change_FSM_state('STAND_STILL_TRACK')
-                else:
-                    self.cmd_handle.cmd.mode = 2
-                    self.cmd_handle.cmd.forwardSpeed = 0
-                    self.cmd_handle.cmd.rotateSpeed += self.pid_rotateSpeed(target_uv.x)
-                    self.cmd_handle.cmd.sideSpeed += self.pid_sideSpeed(target_uv.x)
-            elif distance > self.replan_distance:
-                change_FSM_state('REPLAN')
-            else:
-                change_FSM_state('MOVE_FORWARD_TRACK')
         elif state == FSM_state.REPLAN:
-            enable_seek_target = rospy.get_param('enable_seek_target')
-            if 0 < distance <= self.replan_distance:
+            # enable_seek_target = rospy.get_param('enable_seek_target')
+            if distance == -1:
                 rospy.set_param('enable_replan', False)
-                change_FSM_state('INIT')
-            elif enable_seek_target:
                 change_FSM_state('SEEK_TARGET')
+            elif distance <= safe_distance:
+                rospy.set_param('enable_replan', False)
+                change_FSM_state('STAND_STILL_TRACK')
             else:
                 return False
+
         elif state == FSM_state.SEEK_TARGET:
-            if distance > 0:
-                change_FSM_state('INIT')
-            self.seek_curve_x += 0.01
-            if 0 <= self.seek_curve_x <= 4:
-                 self.cmd_handle.cmd.yaw = -0.6*sin(pi*self.seek_curve_x/2)
-            if 3 <= self.seek_curve_x <= 5:
-                self.cmd_handle.cmd.pitch = -0.6*cos(pi*self.seek_curve_x/2)
-            # if self.seek_curve_x > 5:
-            #     self.cmd_handle.cmd.rotateSpeed = 0.1
-            if self.seek_curve_x > 5.0:
-                change_FSM_state('INIT')
+            if distance == -1:
+                self.seek_curve_x += 0.01
+                if 0 <= self.seek_curve_x <= 4:
+                    self.cmd_handle.cmd.yaw = -0.6*sin(pi*self.seek_curve_x/2)
+                if 3 <= self.seek_curve_x <= 5:
+                    self.cmd_handle.cmd.pitch = -0.6*cos(pi*self.seek_curve_x/2)
+                if 5 <self.seek_curve_x <= 6:
+                    self.cmd_handle.cmd.rotateSpeed = 0.1
+                if self.seek_curve_x > 6:
+                    change_FSM_state('WAIT_TARGET')
+            elif distance > safe_distance:
+                change_FSM_state('REPLAN')
+            elif distance <= safe_distance:
+                change_FSM_state('STAND_STILL_TRACK')
             
         else:
             print 'Invalid state!'
