@@ -56,7 +56,7 @@ class TrajController:
             if pos_cmd.velocity.x == 0.0 and pos_cmd.velocity.y == 0.0:
                 if rospy.Time.now().to_nsec() - self.reach_goal_first_time.to_nsec() > 500000000:
                     rospy.set_param('enable_replan', False)
-                    rospy.set_param('enable_seek_target', True)
+                    # rospy.set_param('enable_seek_target', True)
             else:
                 self.cmd_handle.cmd.mode = 2
                 self.cmd_handle.cmd.forwardSpeed = self.pid_x(vins_imu.pose.pose.position.x - pos_cmd.position.x)
