@@ -28,7 +28,7 @@ class TrajController:
 
         self.reach_goal_first_time = rospy.Time.now()
 
-    def reset_pid():
+    def reset_pid(self):
         self.pid_x.reset()
         self.pid_y.reset()
         self.pid_yaw.reset()
@@ -53,21 +53,21 @@ class TrajController:
             vins_imu.pose.pose.position.x = vins_imu.pose.pose.position.x - 0.2
             self.laikago_pose_pub.publish(vins_imu)
             
-            if pos_cmd.velocity.x == 0.0 and pos_cmd.velocity.y == 0.0:
-                if rospy.Time.now().to_nsec() - self.reach_goal_first_time.to_nsec() > 500000000:
-                    rospy.set_param('enable_replan', False)
-                    # rospy.set_param('enable_seek_target', True)
-            else:
-                self.cmd_handle.cmd.mode = 2
-                self.cmd_handle.cmd.forwardSpeed = self.pid_x(vins_imu.pose.pose.position.x - pos_cmd.position.x)
-                self.cmd_handle.cmd.sideSpeed = self.pid_y(vins_imu.pose.pose.position.y - pos_cmd.position.y)
-                orientation = vins_imu.pose.pose.orientation
-                (roll, pitch, yaw) = transformations.euler_from_quaternion([orientation.x, orientation.y, orientation.z, orientation.w])
-                self.cmd_handle.cmd.rotateSpeed = self.pid_yaw(yaw - pos_cmd.yaw)
+            # if pos_cmd.velocity.x == 0.0 and pos_cmd.velocity.y == 0.0:
+            #     if rospy.Time.now().to_nsec() - self.reach_goal_first_time.to_nsec() > 500000000:
+            #         rospy.set_param('enable_replan', False)
+            #         # rospy.set_param('enable_seek_target', True)
+            # else:
+            self.cmd_handle.cmd.mode = 2
+            self.cmd_handle.cmd.forwardSpeed = self.pid_x(vins_imu.pose.pose.position.x - pos_cmd.position.x)
+            self.cmd_handle.cmd.sideSpeed = self.pid_y(vins_imu.pose.pose.position.y - pos_cmd.position.y)
+            orientation = vins_imu.pose.pose.orientation
+            (roll, pitch, yaw) = transformations.euler_from_quaternion([orientation.x, orientation.y, orientation.z, orientation.w])
+            self.cmd_handle.cmd.rotateSpeed = self.pid_yaw(yaw - pos_cmd.yaw)
 
-                self.cmd_handle.send()
+            self.cmd_handle.send()
 
-                self.reach_goal_first_time = rospy.Time.now()
+            self.reach_goal_first_time = rospy.Time.now()
         else:
             self.reset_pid()
         
