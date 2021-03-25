@@ -110,8 +110,10 @@ class TrackFsm:
 
         elif state == FSM_state.STAND_STILL_TRACK:
             if distance == -1:
-                change_FSM_state('SEEK_TARGET')
+                if rospy.Time.now().to_nsec() - self.FSM_state_enter_first_time.to_nsec() > 1000000000:
+                    change_FSM_state('SEEK_TARGET')
             elif distance <= safe_distance:
+                self.FSM_state_enter_first_time = rospy.Time.now()
                 # make sure the robot has stopped
                 if laikage_Highstate.forwardSpeed == 0:
                     self.cmd_handle.cmd.yaw -= self.pid_yaw(target_uv.x)
@@ -139,17 +141,19 @@ class TrackFsm:
         elif state == FSM_state.REPLAN:
             # enable_seek_target = rospy.get_param('enable_seek_target')
             if distance == -1:
-                rospy.set_param('enable_replan', False)
-                change_FSM_state('SEEK_TARGET')
+                if rospy.Time.now().to_nsec() - self.FSM_state_enter_first_time.to_nsec() > 1000000000:
+                    rospy.set_param('enable_replan', False)
+                    change_FSM_state('SEEK_TARGET')
             elif distance <= safe_distance:
                 rospy.set_param('enable_replan', False)
                 change_FSM_state('STAND_STILL_TRACK')
             else:
+                self.FSM_state_enter_first_time = rospy.Time.now()
                 return False
 
         elif state == FSM_state.SEEK_TARGET:
             if distance == -1:
-                self.seek_curve_x += 0.01
+                self.seek_curve_x += 0.03
                 if 0 <= self.seek_curve_x <= 4:
                     self.cmd_handle.cmd.yaw = -0.6*sin(pi*self.seek_curve_x/2)
                 if 3 <= self.seek_curve_x <= 5:
