@@ -1,2 +1,4 @@
 *.pyc
 .DS_Store
+scripts/goal_generator.py
+scripts/plot_data_pub.py

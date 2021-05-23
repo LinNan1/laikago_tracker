@@ -200,7 +200,7 @@ class TargetDetector:
             depth_array = np.array(depth_image, dtype=np.float32)
             distance = depth_array[cY][cX]/1000 + 0.000000001
 
-            if distance > self.replan_distance:
+            if distance > self.safe_distance:
                 P_uv = np.array([[cX],[cY],[1.0]])
                 P_xyz = distance*np.dot(np.linalg.inv(self.camera_intrinsics),P_uv)
                 # rospy.loginfo('%f, %f, %f',P_xyz[0][0],P_xyz[1][0],P_xyz[2][0])
