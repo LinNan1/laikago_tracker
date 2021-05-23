@@ -18,9 +18,9 @@ class TrajController:
         self.safe_distance = rospy.get_param('safe_distance') # m
         self.replan_distance = rospy.get_param('replan_distance') # m
 
-        self.pid_x = PID(2.0, 0.0, 0.02, setpoint=0)
-        self.pid_y = PID(2.5, 0.0, 0.025, setpoint=0)
-        self.pid_yaw = PID(3.0, 0.0, 0.03, setpoint=0)
+        self.pid_x = PID(1.5, 0.0, 0.01, setpoint=0)
+        self.pid_y = PID(1.5, 0.0, 0.023, setpoint=0)
+        self.pid_yaw = PID(1.5, 0.0, 0.01, setpoint=0)
 
         self.pid_x.output_limits = (0,1)
         self.pid_y.output_limits = (-1,1)
@@ -36,8 +36,9 @@ class TrajController:
     def call_back(self,pos_cmd, vins_imu):
 
         enable = rospy.get_param('enable_replan')
-
+        # enable = True
         if enable:
+            # debug
             pos_cmd_pos = Odometry()
             pos_cmd_pos.pose.pose.position.x = pos_cmd.position.x
             pos_cmd_pos.pose.pose.position.y = pos_cmd.position.y
@@ -63,6 +64,10 @@ class TrajController:
             self.cmd_handle.cmd.sideSpeed = self.pid_y(vins_imu.pose.pose.position.y - pos_cmd.position.y)
             orientation = vins_imu.pose.pose.orientation
             (roll, pitch, yaw) = transformations.euler_from_quaternion([orientation.x, orientation.y, orientation.z, orientation.w])
+            # (roll, pitch, yaw) = transformations.euler_from_quaternion([
+            #     pos_cmd.position.x - vins_imu.pose.pose.position.x, 
+            #     pos_cmd.position.y - vins_imu.pose.pose.position.y, 
+            #     0, orientation.w])
             self.cmd_handle.cmd.rotateSpeed = self.pid_yaw(yaw - pos_cmd.yaw)
 
             self.cmd_handle.send()
